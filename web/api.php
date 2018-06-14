@@ -33,16 +33,35 @@ if (strtoupper($_SERVER['REQUEST_METHOD']) === 'POST') {
                 die();
             }
 
+            // Get props for bulbs list
+            foreach ($bulbList as $bulb) {
+                $bulb->getProp([Bulb\BulbProperties::NAME, Bulb\BulbProperties::POWER, Bulb\BulbProperties::RGB, Bulb\BulbProperties::BRIGHT])->done(function (Bulb\Response $response) {
+                    global $bulb;
+                    $result = $response->getResult();
+                    $bulb->name = $result[0];
+                    $bulb->power = $result[1];
+                    $bulb->rgb = dechex($result[2]);
+                    $bulb->bright = $result[3];
+                }, function (Bulb\Exceptions\BulbCommandException $exception) {
+                    global $bulb;
+                    $bulb->name = "no-name";
+                    $bulb->power = "off";
+                    $bulb->rgb = "000000";
+                    $bulb->bright = "0";
+                    $bulb->exception = $exception->getMessage();
+                });
+            }
+
             // if the user only wants to operate with one or several concrete bulbs
             if ((isset($_POST['bulbs']))&&($_POST['bulbs']!='all')) {
 
                 // Obtain Ids
-                $bulbListIds = explode(',', $_POST['bulbs']);
+                $bulbListIdsOrNames = explode(',', $_POST['bulbs']);
 
                 // Obtain bulbs selected
                 $selectedBulb = [];
                 foreach ($bulbList as $bulb) {
-                    if (in_array($bulb->getId(), $bulbListIds)) {
+                    if ( (in_array($bulb->getId(), $bulbListIdsOrNames)) || (in_array($bulb->name, $bulbListIdsOrNames)) ) {
                         $selectedBulb[] = $bulb;
                     }
                 }
@@ -59,6 +78,7 @@ if (strtoupper($_SERVER['REQUEST_METHOD']) === 'POST') {
             }
 
             // Obtain commons values
+            $name = (isset($_POST['name'])) ?  $_POST['name'] : $default_name;
             $power = ( (isset($_POST['power'])) && ( ($_POST['power']=='on') || ($_POST['power']=='off')) ) ? $_POST['power'] : $default_power;
             $bright = ( (isset($_POST['bright'])) && (!empty($_POST['bright'])) && (is_numeric($_POST['bright'])) ) ? $_POST['bright'] : $default_bright;
             $rgb = ( (isset($_POST['rgb'])) && (!empty($_POST['rgb'])) && (ctype_xdigit($_POST['rgb']))) ? hexdec($_POST['rgb']) : $default_rgb;
@@ -68,6 +88,7 @@ if (strtoupper($_SERVER['REQUEST_METHOD']) === 'POST') {
             $cycles_duration = ( (isset($_POST['cycles_duration'])) && (!empty($_POST['cycles_duration'])) && (is_numeric($_POST['cycles_duration'])) ) ? $_POST['cycles_duration'] : $default_cycles_duration;
 
             // Restrictions
+            $name =  preg_replace('/[^A-Za-z0-9\-]/', '', str_replace(' ', '-', $name));
             $bright = ($bright > 100) ? 100 : (($bright < 1) ? 1 : $bright);
             $effect_duration = ($effect_duration > 10000) ? 10000 : (($effect_duration < 30) ? 30 : $effect_duration);
             $cycles = ($cycles > 20) ? 20 : (($cycles < 1) ? 1 : $cycles);
@@ -81,17 +102,20 @@ if (strtoupper($_SERVER['REQUEST_METHOD']) === 'POST') {
                     $data = [];
 
                     foreach ($bulbList as $bulb) {
-                        $bulb->getProp([Bulb\BulbProperties::POWER, Bulb\BulbProperties::RGB, Bulb\BulbProperties::BRIGHT])->done(function (Bulb\Response $response) {
-                            global $data, $bulb;
-                            $result = $response->getResult();
-                            $data[] = ["id" => $bulb->getId(), "address" => $bulb->getAddress(), "power" => $result[0], "rgb" => dechex($result[1]), "bright" => $result[2]];
-                        }, function (Bulb\Exceptions\BulbCommandException $exception) {
-                            global $data, $bulb;
-                            $data[] = ["id" => $bulb->getId(), "address" => $bulb->getAddress(), "exception" => $exception->getMessage()];
-                        });
+                        $data[] = ["id" => $bulb->getId(), "name" => $bulb->name, "address" => $bulb->getAddress(), "power" => $bulb->power, "rgb" => $bulb->rgb, "bright" => $bulb->bright];
                     }
 
                     return_ok($data); // Return ok & close communication with client
+
+                    break;
+
+                case 'name':
+
+                    foreach ($bulbList as $bulb) {
+                        $bulb->setName($name);
+                    }
+
+                    return_ok(); // Return ok & close communication with client
 
                     break;
 

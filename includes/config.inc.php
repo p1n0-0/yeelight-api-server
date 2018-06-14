@@ -11,6 +11,7 @@ $secretToken                = "0000000000000000";   // Change me
 $timeout                    = 1;            // Time in seconds
 
 # Default values
+$default_name               = 'yeelight';   // Bulb network name
 $default_power              = 'on';         // Power status (Support 'on' or 'off')
 $default_bright             = 100;          // Brightness percentage (Minimum 1, Max 100)
 $default_rgb                = 0xFFFFFF;     // Default RGB color (Hex value)
